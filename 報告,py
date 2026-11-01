@@ -1,0 +1,70 @@
+import math
+
+def run_small_scale_test(group_name, ages, strength_matrix, target_fc):
+    print("==========================================")
+    print(f" 測試組別：{group_name}")
+    print("==========================================")
+    
+    avg_strengths = []
+    
+    # 1. 計算各齡期平均強度
+    for i in range(len(ages)):
+        age = ages[i]
+        trials = [trial[i] for trial in strength_matrix]
+        mean_str = sum(trials) / len(trials)
+        avg_strengths.append(mean_str)
+        print(f"  * 齡期 {age:2d} 天 | 試體實測數據: {trials} | 平均強度: {mean_str:.2f} MPa")
+    
+    n = len(ages)
+    
+    # 2. 純 Python 實作對數成長模型反推: f(t) = b * ln(t) + a
+    x_log = [math.log(a) for a in ages]
+    y_log = avg_strengths
+    
+    sum_x = sum(x_log)
+    sum_y = sum(y_log)
+    sum_xy = sum(x * y for x, y in zip(x_log, y_log))
+    sum_xx = sum(x ** 2 for x in x_log)
+    
+    b_log = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x ** 2)
+    a_log = (sum_y - b_log * sum_x) / n
+    
+    # 3. 純 Python 實作 ACI 209 雙曲線模型反推: f(t) = t / (alpha + beta * t)
+    # 轉換線性化形式: t / f(t) = alpha + beta * t
+    x_aci = ages
+    y_aci = [age / str_v for age, str_v in zip(ages, avg_strengths)]
+    
+    sum_xa = sum(x_aci)
+    sum_ya = sum(y_aci)
+    sum_xaya = sum(x * y for x, y in zip(x_aci, y_aci))
+    sum_xxa = sum(x ** 2 for x in x_aci)
+    
+    beta_aci = (n * sum_xaya - sum_xa * sum_ya) / (n * sum_xxa - sum_xa ** 2)
+    alpha_aci = (sum_ya - beta_aci * sum_xa) / n
+    
+    print(f"\n  [反推方程式結果]")
+    print(f"  - 對數模型: f(t) = {b_log:.4f} * ln(t) + {a_log:.4f}")
+    print(f"  - ACI模型:  f(t) = t / ({alpha_aci:.4f} + {beta_aci:.4f} * t)\n" + "-"*42 + "\n")
+
+# ==========================================
+# 小規模假資料定義
+# ==========================================
+test_ages = [3, 7, 14]
+
+# 傳統基準組 (3個試體在 3天、7天、14天的抗壓強度 MPa)
+group_T_data = [
+    [14.5, 21.0, 26.5],  # 試體 1
+    [15.2, 22.5, 27.8],  # 試體 2
+    [13.8, 20.2, 25.9]   # 試體 3
+]
+
+# 低碳飛灰複合組 (3個試體在 3天、7天、14天的抗壓強度 MPa)
+group_DFM_data = [
+    [11.0, 17.5, 24.2],  # 試體 1
+    [11.8, 18.2, 25.0],  # 試體 2
+    [10.5, 16.9, 23.6]   # 試體 3
+]
+
+# 執行測試與係數反推
+run_small_scale_test("傳統基準組 (T組)", test_ages, group_T_data, 25.0)
+run_small_scale_test("低碳飛灰複合組 (DFM組)", test_ages, group_DFM_data, 25.0)

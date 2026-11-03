@@ -96,7 +96,6 @@ def analyze_and_plot_aci(datasets, test_ages, target_fc):
     plt.legend(loc='upper left', fontsize=10)
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.tight_layout()
-    plt.show()
     
     return all_results
 
@@ -147,3 +146,5 @@ for res in results:
     print(f"  * ACI 模型係數: alpha = {res['alpha']:.4f}, beta = {res['beta']:.4f}")
     print(f"  * 推估長期極限強度 (t→∞): {res['ultimate_strength']:.2f} MPa")
     print("-" * 50)
+
+plt.show()

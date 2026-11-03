@@ -2,6 +2,9 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+plt.rcParams["font.family"] = "Microsoft JhengHei"
+plt.rcParams["axes.unicode_minus"] = False
+
 def analyze_and_plot_aci(datasets, test_ages, target_fc):
     """
     功能：處理混凝土抗壓強度數據、計算 ACI 209 雙曲線模型參數，並繪製平滑預測曲線圖。

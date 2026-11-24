@@ -38,57 +38,26 @@ def predict_strength(age, s_value, t0, fc28):
     return math.exp(s_value * factor) * fc28
 
 
-def smooth_average_curve(ages, strengths, points_per_interval=100):
-    """建立通過平均值資料點且避免過衝的平滑曲線。"""
-    intervals = [x_next - x for x, x_next in zip(ages, ages[1:])]
-    slopes = [
-        (y_next - y) / interval
-        for y, y_next, interval in zip(strengths, strengths[1:], intervals)
-    ]
-    tangents = [slopes[0]]
+def fit_average_logarithmic_regression(ages, strengths):
+    """使用最小平方法計算對數迴歸 y = a * ln(x) + b。"""
+    if len(ages) != len(strengths):
+        raise ValueError("齡期數量必須與平均強度數量相同。")
+    if any(age <= 0 for age in ages):
+        raise ValueError("齡期必須大於 0。")
 
-    for index in range(1, len(ages) - 1):
-        previous_slope = slopes[index - 1]
-        next_slope = slopes[index]
-        if previous_slope * next_slope <= 0:
-            tangents.append(0)
-            continue
+    log_ages = [math.log(age) for age in ages]
+    mean_log_age = sum(log_ages) / len(log_ages)
+    mean_strength = sum(strengths) / len(strengths)
+    denominator = sum((log_age - mean_log_age) ** 2 for log_age in log_ages)
+    if denominator == 0:
+        raise ValueError("齡期資料無法用來建立迴歸線。")
 
-        previous_interval = intervals[index - 1]
-        next_interval = intervals[index]
-        weight_previous = 2 * next_interval + previous_interval
-        weight_next = next_interval + 2 * previous_interval
-        tangents.append(
-            (weight_previous + weight_next)
-            / (weight_previous / previous_slope + weight_next / next_slope)
-        )
-
-    tangents.append(slopes[-1])
-    smooth_ages = []
-    smooth_strengths = []
-
-    for index, (start_age, end_age) in enumerate(zip(ages, ages[1:])):
-        interval = intervals[index]
-        for point in range(points_per_interval):
-            ratio = point / points_per_interval
-            ratio_squared = ratio * ratio
-            ratio_cubed = ratio_squared * ratio
-            h00 = 2 * ratio_cubed - 3 * ratio_squared + 1
-            h10 = ratio_cubed - 2 * ratio_squared + ratio
-            h01 = -2 * ratio_cubed + 3 * ratio_squared
-            h11 = ratio_cubed - ratio_squared
-
-            smooth_ages.append(start_age + ratio * interval)
-            smooth_strengths.append(
-                h00 * strengths[index]
-                + h10 * interval * tangents[index]
-                + h01 * strengths[index + 1]
-                + h11 * interval * tangents[index + 1]
-            )
-
-    smooth_ages.append(ages[-1])
-    smooth_strengths.append(strengths[-1])
-    return smooth_ages, smooth_strengths
+    a_value = sum(
+        (log_age - mean_log_age) * (strength - mean_strength)
+        for log_age, strength in zip(log_ages, strengths)
+    ) / denominator
+    b_value = mean_strength - a_value * mean_log_age
+    return a_value, b_value
 
 
 def main():
@@ -106,9 +75,6 @@ def main():
         predict_strength(age, s_value, t0, fc28)
         for age in ages_days
     ]
-    average_curve_ages, average_curve_strengths = smooth_average_curve(
-        ages_days, mean_strengths
-    )
     smooth_ages = [
         ages_days[0] + (ages_days[-1] - ages_days[0]) * index / 499
         for index in range(500)
@@ -117,9 +83,20 @@ def main():
         predict_strength(age, s_value, t0, fc28)
         for age in smooth_ages
     ]
+    regression_a, regression_b = fit_average_logarithmic_regression(
+        ages_days, mean_strengths
+    )
+    average_regression_strengths = [
+        regression_a * math.log(age) + regression_b
+        for age in smooth_ages
+    ]
 
     print(f"\n28 天設計強度 fc28 = {fc28:.4f} MPa")
     print(f"反推共同參數 S = {s_value:.6f}")
+    print(
+        f"平均值對數迴歸：y = {regression_a:.6f} "
+        f"* ln(x) + {regression_b:.6f}"
+    )
     print("\n各齡期實測平均值與模型預測值：")
     for age, measured, predicted in zip(
         ages_days, mean_strengths, predicted_strengths
@@ -131,10 +108,11 @@ def main():
 
     plt.figure(figsize=(9, 6))
     plt.plot(
-        average_curve_ages,
-        average_curve_strengths,
+        smooth_ages,
+        average_regression_strengths,
         linewidth=2,
-        label="Measured average (smooth interpolation)",
+        linestyle="--",
+        label="Measured average logarithmic regression",
     )
     plt.scatter(
         ages_days,

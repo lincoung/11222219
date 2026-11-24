@@ -151,7 +151,7 @@ def main():
         plt.annotate(f"{strength:.1f}", (age, strength), xytext=(0, -14),
                      textcoords="offset points", ha="center")
 
-    plt.title("Measured Average vs. Model Prediction (M50)")
+    plt.title("Measured Average vs. Model Prediction (FM50)")
     plt.xlabel("Age (days)")
     plt.ylabel("Compressive Strength (kgf/cm^2)")
     plt.xticks(ages_days)
